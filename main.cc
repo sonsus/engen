@@ -3,24 +3,24 @@
 // Date: 09-28-2016
 // Time-stamp: <yangfeng 12/12/2017 13:17:36>
 
-#include "dynet/globals.h"
-#include "dynet/nodes.h"
-#include "dynet/dynet.h"
-#include "dynet/training.h"
-#include "dynet/timing.h"
-#include "dynet/rnn.h"
+#include "dynet/globals.h" // for error cehcking (DYNET_INVALID_ARG(arg) DYNET_RUNTIME DYNET_ASSERT) 
+#include "dynet/nodes.h" // node struct providing 
+#include "dynet/dynet.h" // computation graph struct defined
+#include "dynet/training.h" // constructor for Trainer class(or struct?) 
+#include "dynet/timing.h" // elapsed time recorder struct providing
+#include "dynet/rnn.h" // 
 #include "dynet/gru.h"
 #include "dynet/lstm.h"
-#include "dynet/dict.h"
-#include "dynet/expr.h"
-#include "dynet/model.h"
+#include "dynet/dict.h" //vocab dict handling maybe? (unk token handling confirmed. Other parts are ambiguous in their role)
+#include "dynet/expr.h" //dynet graph operations 
+#include "dynet/model.h" // differentiable params, gradient handling
 
-#include "entitynlm.h"
-#include "util.h"
+#include "entitynlm.h" //entity nlm class is defined here.
+#include "util.h" /*util functions to be listed later here: load, save models, write doc, read doc, ... etc*/
 
 #include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/program_options.hpp>
+#include <boost/archive/text_oarchive.hpp> // "Boost C++" libraries
+#include <boost/program_options.hpp> 
 #include <boost/format.hpp>
 #include <boost/filesystem.hpp>
 #include <exception>
@@ -55,7 +55,7 @@ int main(int argc, char** argv) {
     ("task", po::value<string>(), "task")
     ("modeltype", po::value<string>()->default_value(string("gen")), "model type: 'gen' or 'dis'")
     ("lr", po::value<float>()->default_value((float)0.1), "learning rate")
-    ("trainer", po::value<unsigned>()->default_value((unsigned)0), "0: SGD; 1: AdaGrad; 2: Adam")
+    ("trainer", po::value<unsigned>()->default_value((unsigned)0), "0: SGD; 1: AdaGrad; 2: Adam") // trainer a is optimizer algorithm 
     ("trnfile", po::value<string>()->default_value(string("")), "training file")
     ("devfile", po::value<string>()->default_value(string("")), "dev file")
     ("tstfile", po::value<string>()->default_value(string("")), "test file")
@@ -64,33 +64,33 @@ int main(int argc, char** argv) {
     ("inputdim", po::value<unsigned>()->default_value((unsigned)48), "input dimension")
     ("hiddendim", po::value<unsigned>()->default_value((unsigned)48), "hidden dimension")
     ("entitydim", po::value<unsigned>()->default_value((unsigned)48), "entity embedding dimension")
-    ("compmethod", po::value<unsigned>()->default_value((unsigned)0), "context composition method")
+    ("compmethod", po::value<unsigned>()->default_value((unsigned)0), "context composition method") // what is Context Composition Method?
     ("lambda0", po::value<float>()->default_value((float)1.0), "lambda0")
     ("lambda1", po::value<float>()->default_value((float)0.0), "lambda1")
     ("lambda2", po::value<float>()->default_value((float)0.0), "lambda2")
     ("lambda3", po::value<float>()->default_value((float)0.0), "lambda3")
-    ("mlen", po::value<unsigned>()->default_value((unsigned)25), "max mention length")
+    ("mlen", po::value<unsigned>()->default_value((unsigned)25), "max mention length") // mention length?
     ("droprate", po::value<float>()->default_value((float)0.0), "droput rate (0: no dropout)")
     ("nlayers", po::value<unsigned>()->default_value((unsigned)1), "number of hidden layers")
-    ("entityweight", po::value<float>()->default_value((float)1.0), "entity prediction weight")
-    ("nsample", po::value<unsigned>()->default_value((unsigned)0), "number of samples per doc")
+    ("entityweight", po::value<float>()->default_value((float)1.0), "entity prediction weight") // entity prediction weight...????? default 1.0?
+    ("nsample", po::value<unsigned>()->default_value((unsigned)0), "number of samples per doc") // # of source text sentences?
     ("ntype", po::value<unsigned>()->default_value((unsigned)2), "number of entity types")
     ("evalstep", po::value<unsigned>()->default_value((unsigned)10), "evaluation step")
-    ("evalobj", po::value<unsigned>()->default_value((unsigned)0), "evaluation objective")
+    ("evalobj", po::value<unsigned>()->default_value((unsigned)0), "evaluation objective") //?
     ("path", po::value<string>()->default_value(string("tmp")), "file path")
     ("clusterfile", po::value<string>()->default_value(string("")), "word cluster file")
     ("embedfile", po::value<string>()->default_value(string("")), "pretrained word embeddings file");
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
   po::notify(vm);
-  if (vm.count("help")) {cerr << desc << "\n"; return 1;}
+  if (vm.count("help")) {cerr << desc << "\n"; return 1;} //https://www.boost.org/doc/libs/1_60_0/doc/html/program_options/tutorial.html variable map ~= std::map
   
   // -----------------------------------------------
   // get argument values
   // int kSOS = d.convert("<s>");
   // int kEOS = d.convert("</s>");
-  if (!vm.count("task")){cerr << "please specify the task" << endl; return 1;}
-  string task = vm["task"].as<string>();
+  if (!vm.count("task")){cerr << "please specify the task" << endl; return 1;} // map::count returns 1 if map['key'] has any value.
+  string task = vm["task"].as<string>(); // task = train , test, reg, sample 
   string model_type = vm["modeltype"].as<string>();
   string ftrn = vm["trnfile"].as<string>();
   string fdev = vm["devfile"].as<string>();
@@ -98,7 +98,7 @@ int main(int argc, char** argv) {
   string fdct = vm["dctfile"].as<string>();
   string fmod = vm["modfile"].as<string>();
   float lr = vm["lr"].as<float>();
-  unsigned trainer = vm["trainer"].as<unsigned>();
+  unsigned trainer = vm["trainer"].as<unsigned>(); 
   unsigned inputdim = vm["inputdim"].as<unsigned>();
   unsigned hiddendim = vm["hiddendim"].as<unsigned>();
   unsigned entitydim = vm["entitydim"].as<unsigned>();
@@ -213,7 +213,7 @@ int main(int argc, char** argv) {
   // --------------------------------------------
   // define a model and load data
   ParameterCollection model;
-  EntityNLM smm;
+  EntityNLM smm; // need to see what is "smm"!
   Corpus training, dev, tst;
   unsigned vocab_size = 0;
   if (task == "train"){
@@ -223,7 +223,7 @@ int main(int argc, char** argv) {
     if (fdct.size() > 0){
       // load with predefined dict
       load_dict(fdct, d);
-      d.freeze();
+      d.freeze(); //dictionary is frozen here
       training = read_corpus((char*)ftrn.c_str(), &d, false);
     } else {
       // create dict with training data
@@ -245,7 +245,7 @@ int main(int argc, char** argv) {
       // load pre-trained model
       load_model(fmod, model);
     }
-  } else if ((task == "test") or (task == "sample") or (task == "reg")){
+  } else if ((task == "test") or (task == "sample") or (task == "reg")){ // vm['task'] = train, test, reg, sample
     if (ftst.size() == 0){
       cerr << "please specify the tst file" << endl;
       return 1;
@@ -265,7 +265,7 @@ int main(int argc, char** argv) {
 		    nlayers, inputdim, hiddendim,
 		    entitydim, compmethod,
 		    lambda0, lambda1, lambda2, lambda3,
-		    clusterfile, embedfile);
+		    clusterfile, embedfile); // cluster file, compmethod... 
     load_model(fmod, model);
   }
 #if NODEBUG
@@ -286,8 +286,9 @@ int main(int argc, char** argv) {
     }
     // sgd->clip_threshold = 1.0;
   }
-
-  // 
+  /////////////////////////////
+  // Training starts here//////
+  /////////////////////////////
   if (task == "train"){
     unsigned docs = 0;
     unsigned report_every_i = 50;
