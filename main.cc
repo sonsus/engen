@@ -293,7 +293,7 @@ int main(int argc, char** argv) {
     unsigned docs = 0;
     unsigned report_every_i = 50;
     unsigned dev_every_i_reports = evalstep;
-    unsigned si = training.size();
+    unsigned si = training.size();   //training here is a Corpus == vector<Doc> == vector<vector<Sent>>
     float best_dev_loss = 100;
     vector<unsigned> order(training.size());
     for (unsigned i = 0; i < order.size(); ++i) order[i] = i;
@@ -303,12 +303,12 @@ int main(int argc, char** argv) {
       double loss = 0, docloss = 0;
       unsigned words = 0;
       for (unsigned i = 0; i < report_every_i; ++i) {
-	loss = 0; words = 0;
-	if (si == training.size()) {
-	  si = 0;
-	  cerr << "** SHUFFLE **\n";
-	  shuffle(order.begin(), order.end(), *rndeng);
-	}
+      	loss = 0; words = 0;
+      	if (si == training.size()) {
+      	  si = 0;
+      	  cerr << "** SHUFFLE **\n";
+      	  shuffle(order.begin(), order.end(), *rndeng);
+      	}
 	docs ++;
 	// cerr << "si = " << si << endl;
 	auto& doc = training[order[si++]];
@@ -324,10 +324,12 @@ int main(int argc, char** argv) {
 	for (auto& sent : doc.sents){ words += sent.size() - 1; }
 	Expression eloss;
 	smm.InitGraph(cg, droprate);
+  //seonil model_type: gen=generating, discriminating
 	if (model_type == "gen"){
-	  eloss = smm.BuildGraph(doc, cg, d, evalobj, entityweight, 0);
+	  eloss = smm.BuildGraph(doc, cg, d, evalobj, entityweight, 0); //seonil after entity weight, 0 is nsample @ entitynlm.cc:111
+                                                                  //seonil what is eval obj?
 	} else if (model_type == "dis") {
-	  eloss = smm.BuildDisGraph(doc, cg);
+	  eloss = smm.BuildDisGraph(doc, cg); 
 	} else {
 	  throw runtime_error("unknown model type");
 	}

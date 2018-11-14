@@ -122,7 +122,7 @@ Corpus read_corpus(char* filename, dynet::Dict* dptr,
       // normal sentence
       sent = read_sentence(line, dptr, b_update);
       if (sent.size() > 0){
-	doc.sents.push_back(sent);
+	doc.sents.push_back(sent); //Doc struct seemed to has a queue structure 
 	toks += doc.sents.back().size();
       } else {
 	cerr << "Empty sentence: " << line << endl;

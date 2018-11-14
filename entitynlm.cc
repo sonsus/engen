@@ -13,7 +13,7 @@ EntityNLM::EntityNLM(ParameterCollection& model,
 		     float lambda0, float lambda1,
 		     float lambda2, float lambda3,
 		     string cluster_file,
-		     string fembed) : builder(layers, input_dim, hidden_dim, model) {
+		     string fembed) : builder(layers, input_dim, hidden_dim, model) { // this is LSTMBuilder builder from EntityNLM class (entitynlm.h:43)
   /*****************************************
    * Initialize the model
    *****************************************/
@@ -111,9 +111,9 @@ int EntityNLM::InitGraph(ComputationGraph& cg, float drop_rate){
 Expression EntityNLM::BuildGraph(const Doc& doc,
 				 ComputationGraph& cg,
 				 Dict& d,
-				 int err_type,
-				 float err_weight,
-				 int nsample){
+				 int err_type, //eval obj: that is kind of loss we are using 
+				 float err_weight, //entity weight: not sure what this is. maybe weight for an entity to be chosen? not sure...
+				 int nsample){ //not sure.
   /********************************************
    * Build a CG per doc
    ********************************************/
@@ -127,14 +127,15 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
   // index variable
   map<unsigned, unsigned>::iterator itc, itn;
   // build the coref graph and LM for a given doc
-  vector<Expression> t_errs, e_errs, l_errs, x_errs;
+  vector<Expression> t_errs, e_errs, l_errs, x_errs; 
+  //seonil t:sentence idx(?), e:entity idx, l:length var? in entitynlm?, x: previous word uttered by the decoder
   const unsigned nsent = doc.sents.size(); // doc length
-  // get the dummy context vector
+  // get the dummy context vector (seonil: init the context vector?)
   Expression prev_cont_mat;
   Expression cont = cont_dummy; // normalize_exp(cg, cont_dummy);
   Expression x_t, h_t;
   for (unsigned n = 0; n < nsent; n++){
-    builder.start_new_sequence();
+    builder.start_new_sequence(); //seonil LSTM reset for a new sequence (https://dynet.readthedocs.io/en/latest/builders.html#rnn-builders)
     if (prev_hs.size() > 0){
       has_local_cont = true;
       // cerr << "prev_hs.size() = " << prev_hs.size() << endl;
