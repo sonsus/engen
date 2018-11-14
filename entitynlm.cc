@@ -52,7 +52,7 @@ EntityNLM::EntityNLM(ParameterCollection& model,
   sampledtext = "";
   with_sample = false;
   has_local_cont = false;
-  comp_method = composition_method;
+  comp_method = composition_method; 
 }
 
 int EntityNLM::InitGraph(ComputationGraph& cg, float drop_rate){

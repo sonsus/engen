@@ -64,19 +64,19 @@ int main(int argc, char** argv) {
     ("inputdim", po::value<unsigned>()->default_value((unsigned)48), "input dimension")
     ("hiddendim", po::value<unsigned>()->default_value((unsigned)48), "hidden dimension")
     ("entitydim", po::value<unsigned>()->default_value((unsigned)48), "entity embedding dimension")
-    ("compmethod", po::value<unsigned>()->default_value((unsigned)0), "context composition method") // what is Context Composition Method?
+    ("compmethod", po::value<unsigned>()->default_value((unsigned)0), "context composition method") // what is Context Composition Method? --> maxpooling?
     ("lambda0", po::value<float>()->default_value((float)1.0), "lambda0")
     ("lambda1", po::value<float>()->default_value((float)0.0), "lambda1")
     ("lambda2", po::value<float>()->default_value((float)0.0), "lambda2")
     ("lambda3", po::value<float>()->default_value((float)0.0), "lambda3")
-    ("mlen", po::value<unsigned>()->default_value((unsigned)25), "max mention length") // mention length?
+    ("mlen", po::value<unsigned>()->default_value((unsigned)25), "max mention length") // mention length? --suspected to be a length of NE (Disney Land (2))
     ("droprate", po::value<float>()->default_value((float)0.0), "droput rate (0: no dropout)")
     ("nlayers", po::value<unsigned>()->default_value((unsigned)1), "number of hidden layers")
     ("entityweight", po::value<float>()->default_value((float)1.0), "entity prediction weight") // entity prediction weight...????? default 1.0?
     ("nsample", po::value<unsigned>()->default_value((unsigned)0), "number of samples per doc") // # of source text sentences?
     ("ntype", po::value<unsigned>()->default_value((unsigned)2), "number of entity types")
     ("evalstep", po::value<unsigned>()->default_value((unsigned)10), "evaluation step")
-    ("evalobj", po::value<unsigned>()->default_value((unsigned)0), "evaluation objective") //?
+    ("evalobj", po::value<unsigned>()->default_value((unsigned)0), "evaluation objective") //maybe loss function
     ("path", po::value<string>()->default_value(string("tmp")), "file path")
     ("clusterfile", po::value<string>()->default_value(string("")), "word cluster file")
     ("embedfile", po::value<string>()->default_value(string("")), "pretrained word embeddings file");
