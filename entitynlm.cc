@@ -1,5 +1,5 @@
 #include "entitynlm.h"
-
+//colon (:) after a constructor is initializing sth(that is usually the member variable) before the constructor executes 
 EntityNLM::EntityNLM(ParameterCollection& model,
 		     unsigned vocab_size,
 		     unsigned type_size,
