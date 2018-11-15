@@ -102,8 +102,8 @@ int EntityNLM::InitGraph(ComputationGraph& cg, float drop_rate){
   map_eidx_pos.clear();
   map_pos_eidx.clear();
   //
-  has_local_cont = false;
-  prev_hs.clear();
+  has_local_cont = false; 
+  prev_hs.clear(); // hidden state from previous sentence (entitynlm.h :92)
   // 
   return 0;
 }
@@ -115,7 +115,7 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
 				 float err_weight, //entity weight: not sure what this is. maybe weight for an entity to be chosen? not sure...
 				 int nsample){ //not sure.
   /********************************************
-   * Build a CG per doc
+   * Build a CG per doc*****
    ********************************************/
   
   // Q: how to check whether a CG has been initialized?
@@ -129,14 +129,17 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
   // build the coref graph and LM for a given doc
   vector<Expression> t_errs, e_errs, l_errs, x_errs; 
   //seonil t:sentence idx(?), e:entity idx, l:length var? in entitynlm?, x: previous word uttered by the decoder
+  //t_errs: according to sentence idx t, store loss? lets see further
   const unsigned nsent = doc.sents.size(); // doc length
   // get the dummy context vector (seonil: init the context vector?)
   Expression prev_cont_mat;
   Expression cont = cont_dummy; // normalize_exp(cg, cont_dummy);
   Expression x_t, h_t;
-  for (unsigned n = 0; n < nsent; n++){
+  for (unsigned n = 0; n < nsent; n++)
+  {
     builder.start_new_sequence(); //seonil LSTM reset for a new sequence (https://dynet.readthedocs.io/en/latest/builders.html#rnn-builders)
-    if (prev_hs.size() > 0){
+    if (prev_hs.size() > 0)
+    {
       has_local_cont = true;
       // cerr << "prev_hs.size() = " << prev_hs.size() << endl;
       prev_cont_mat = concatenate_cols(prev_hs);
@@ -145,7 +148,8 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
     auto& sent = doc.sents[n]; // get the current sentence
     unsigned nword = sent.size() - 1; // sent length
     // cerr << "nword = " << nword << endl;
-    for (unsigned t = 0; t < nword; t++){
+    for (unsigned t = 0; t < nword; t++)
+    {
       // get mention type (if there is one)
       auto& curr_tt = sent[t].tidx;
       auto& curr_xt = sent[t].xidx;
@@ -156,11 +160,12 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       auto& next_et = sent[t+1].eidx;
       auto& next_lt = sent[t+1].mlen;
       // update closest_eidx
-      if (curr_tt > 0){
-	closest_eidx = curr_et;
+      if (curr_tt > 0)
+      {
+	     closest_eidx = curr_et;
       }
       // add current token onto CG
-      x_t = lookup(cg, p_X, curr_xt);
+      x_t = lookup(cg, p_X, curr_xt); // this function finds LookUpParams 
       // if (drop_rate > 0) x_t = dropout(x_t, drop_rate);
       
       // get hidden state h_t
@@ -172,108 +177,123 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       
       // ---------------------------------------------
       // update the entity embedding at the end of the mention
-      if ((curr_tt > 0) and (curr_et > 0)){
-	// Expression entrep, recip_norm;
-	itc = map_eidx_pos.find(curr_et);
-	if (itc == map_eidx_pos.end()){
-	  // create a new entity
-	  create_entity(cg, embed_dummy, entitylist, entitydist,
-			map_eidx_pos, map_pos_eidx, curr_et, n);
-	}
-	// based on comtextual information, update entity embedding
+      if ((curr_tt > 0) and (curr_et > 0)) //curr_et>0: entity mentioned
+      {
+      	// Expression entrep, recip_norm;
+        itc = map_eidx_pos.find(curr_et);
+      	if (itc == map_eidx_pos.end())
+        {
+	       // create a new entity
+	      create_entity(cg, embed_dummy, entitylist, entitydist,
+		    	map_eidx_pos, map_pos_eidx, curr_et, n);
+	       }
+	      // based on comtextual information, update entity embedding
         // cerr << "update entity embedding" << endl;
-	update_entity(cg, entitylist, entitydist,
-		      map_eidx_pos, h_t, Wdelta, WT,
-		      cont, curr_et, n);
-      }
+      	update_entity(cg, entitylist, entitydist,
+      		      map_eidx_pos, h_t, Wdelta, WT,
+      		      cont, curr_et, n);
+            }
       
-      if (curr_lt == 1){
-	// ---------------------------------------------
-	// next entity type prediction
-	Expression t_logit = (WR * h_t);
-	t_errs.push_back(pickneglogsoftmax(t_logit, next_tt));
-	// ---------------------------------------------
-	// entity prediction
-	if (next_tt > 0){
-	  // get distance feature
-	  // vector<float> feat_dist;
-	  // for (auto& val : entitydist){
-	  //   feat_dist.push_back(val-n);
-	  // }
-	  vector<float> feat_dist = get_dist_feat(entitydist, n);
-	  //
-	  Expression entmat = concatenate_cols(entitylist);
-	  Expression e_logit = ((transpose(entmat) * WE) * h_t) +
-	    exp(input(cg, {(unsigned)feat_dist.size()}, feat_dist) * lambda_dist);
-	  Expression e_err;
-	  itn = map_eidx_pos.find(next_et);
-	  if (itn != map_eidx_pos.end()){
-	    // if this is not a new entity
-	    e_err = pickneglogsoftmax(e_logit, itn->second);
-	  } else {
-	    // if this is a new entity
-	    e_err = pickneglogsoftmax(e_logit, (unsigned)0);
-	  }
-	  // float v_e_err = as_scalar(cg.incremental_forward(e_err));
-	  e_errs.push_back(e_err);
-	}
+      if (curr_lt == 1)
+      {
+      	// ---------------------------------------------
+      	// next entity type prediction
+      	Expression t_logit = (WR * h_t);
+      	t_errs.push_back(pickneglogsoftmax(t_logit, next_tt));
+      	// ---------------------------------------------
+      	// entity prediction
+      	if (next_tt > 0)
+        {
+      	  // get distance feature
+      	  // vector<float> feat_dist;
+      	  // for (auto& val : entitydist){
+      	  //   feat_dist.push_back(val-n);
+      	  // }
+      	  vector<float> feat_dist = get_dist_feat(entitydist, n);
+      	  //
+      	  Expression entmat = concatenate_cols(entitylist);
+      	  Expression e_logit = ((transpose(entmat) * WE) * h_t) +
+      	    exp(input(cg, {(unsigned)feat_dist.size()}, feat_dist) * lambda_dist);
+      	  Expression e_err;
+      	  itn = map_eidx_pos.find(next_et);
+      	  if (itn != map_eidx_pos.end())
+          {
+      	    // if this is not a new entity
+      	    e_err = pickneglogsoftmax(e_logit, itn->second);
+      	  } 
+          else 
+          {
+      	    // if this is a new entity
+      	    e_err = pickneglogsoftmax(e_logit, (unsigned)0);
+      	  }
+      	  // float v_e_err = as_scalar(cg.incremental_forward(e_err));
+      	  e_errs.push_back(e_err);
+      	}
 	
-	// ---------------------------------------------
-	// entity length prediction
-	if (next_et > 0){
-	  Expression l_logit;
-	  itn = map_eidx_pos.find(next_et);
-	  if (itn != map_eidx_pos.end()){
-	    l_logit = WL * concatenate({h_t, entitylist[itn->second]}) + L_bias;
-	  } else {
-	    l_logit = WL * concatenate({h_t, entitylist[0]}) + L_bias;
-	  }
-	  l_errs.push_back(pickneglogsoftmax(l_logit, next_lt-1));
-	}
-      }
+  	// ---------------------------------------------
+  	// entity length prediction
+    	if (next_et > 0)
+      {
+    	  Expression l_logit;
+    	  itn = map_eidx_pos.find(next_et);
+    	  if (itn != map_eidx_pos.end()){
+    	    l_logit = WL * concatenate({h_t, entitylist[itn->second]}) + L_bias;
+    	  } else {
+    	    l_logit = WL * concatenate({h_t, entitylist[0]}) + L_bias;
+    	  }
+    	  l_errs.push_back(pickneglogsoftmax(l_logit, next_lt-1));
+    	}
+    }
       
       // -----------------------------------------------
       // word prediction
 
       // construct local context
-      if (has_local_cont){
-      	Expression alpha = softmax((transpose(prev_cont_mat) * Tl) * h_t);
-      	cont = prev_cont_mat * alpha;
-	// normalize local context
-	// cont = normalize_exp(cg, cont);
-      }
-      // need to refine this part about incorporating
-      // different sources of context
-      Expression x_err, w_logit, entity_cont;
-      if (next_tt > 0){
-	itn = map_eidx_pos.find(next_et);
-	if (itn != map_eidx_pos.end()){
-	  // entity_cont = Te * entitylist[itn->second];
-	  entity_cont = entitylist[itn->second];
-	} else {
-	  // entity_cont = Te * entitylist[0];
-	  entity_cont = entitylist[0];
-	}
-      } else {
-	if (closest_eidx > 0){
-	  itn = map_eidx_pos.find(closest_eidx);
-	  // entity_cont = Te * entitylist[itn->second];
-	  entity_cont = entitylist[itn->second];
-	} else {
-	  switch(comp_method){
-	  case 2:
-	  case 3:
-	  case 5:
-	    entity_cont = ones(cg, {hidim});
-	    // cerr << "ones" << endl;
-	    break;
-	  default:
-	    entity_cont = zeros(cg, {hidim});
-	    // cerr << "zeros" << endl;
-	    break;
-	  }
-	}
-      }
+    if (has_local_cont)
+    {
+    	Expression alpha = softmax((transpose(prev_cont_mat) * Tl) * h_t);
+    	cont = prev_cont_mat * alpha;
+  	// normalize local context
+  	// cont = normalize_exp(cg, cont);
+    }
+    // need to refine this part about incorporating
+    // different sources of context
+    Expression x_err, w_logit, entity_cont;
+    if (next_tt > 0)
+    {
+    	itn = map_eidx_pos.find(next_et);
+    	if (itn != map_eidx_pos.end())
+      {
+  	  // entity_cont = Te * entitylist[itn->second];
+	     entity_cont = entitylist[itn->second];
+      } 
+      else 
+      {
+  	   // entity_cont = Te * entitylist[0];
+  	   entity_cont = entitylist[0];
+	    }
+    } 
+    else 
+    {
+    	if (closest_eidx > 0){
+    	  itn = map_eidx_pos.find(closest_eidx);
+    	  // entity_cont = Te * entitylist[itn->second];
+    	  entity_cont = entitylist[itn->second];
+    	} else {
+      	  switch(comp_method){
+      	  case 2:
+      	  case 3:
+      	  case 5:
+      	    entity_cont = ones(cg, {hidim});
+      	    // cerr << "ones" << endl;
+      	    break;
+      	  default:
+      	    entity_cont = zeros(cg, {hidim});
+      	    // cerr << "zeros" << endl;
+      	    break;
+    	  }
+	    }
+    }
       // float h_s = as_scalar(cg.incremental_forward(squared_norm(h_t)));
       // float c_s = as_scalar(cg.incremental_forward(squared_norm(cont)));
       // float e_s = as_scalar(cg.incremental_forward(squared_norm(entity_cont)));
@@ -333,67 +353,73 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
     while ((bool)nsample){
       // update closest_eidx
       if (curr_tt > 0){
-	closest_eidx = curr_et;
+	    closest_eidx = curr_et;
       }
       x_t = lookup(cg, p_X, curr_xt);
       h_t = builder.add_input(x_t);
       // update entity
       if (curr_tt > 0){
-	update_entity(cg, entitylist, entitydist,
+	   update_entity(cg, entitylist, entitydist,
 		      map_eidx_pos, h_t, Wdelta,
 		      WT, cont, curr_et,
 		      doc.sents.size());
-	// need to reload the original state back
-	// after one pass generation
+    	// need to reload the original state back
+    	// after one pass generation
       }
       // 
-      if (curr_lt <= 1){ // update next_tt | it cannot be less than 1, but just in case
-	// sample entity type
-	Expression t_prob = softmax(WR * h_t);
-	vector<float> vt_prob = as_vector(cg.incremental_forward(t_prob));
-	next_tt = get_index(vt_prob, true);
-	if (next_tt > 0){ // sample an entity
-	  vector<float> feat_dist = get_dist_feat(entitydist, doc.sents.size());
-	  Expression entmat = concatenate_cols(entitylist);
-	  Expression e_prob = softmax(((transpose(entmat) * WE) * h_t) +
-				      exp(input(cg, {(unsigned)feat_dist.size()}, feat_dist) * lambda_dist));
-	  vector<float> ve_prob = as_vector(cg.incremental_forward(e_prob));
-	  // this line can be modified to avoid generating new entities
-	  unsigned next_et_pos = get_index(ve_prob, false);
-	  // now check whether this is a new entity
-	  if (next_et_pos == 0){ // if it is new
-	    cerr << "create a new entity ... " << endl;
-	    throw runtime_error("creating new entity is foridden in sampling");
-	  }
-	  itn = map_pos_eidx.find(next_et_pos);
-	  next_et = itn->second;
-	  // sample the length for new entity
-	  Expression l_prob = softmax(WL * concatenate({h_t, entitylist[next_et_pos]}) + L_bias);
-	  vector<float> vl_prob = as_vector(cg.incremental_forward(l_prob));
-	  next_lt = get_index(vl_prob, true) + 1;
-	} else { // a content word
-	  next_et = 0;
-	  next_lt = 1;
-	}
-      } else { // previous entity info
-	next_tt = curr_tt;
-	next_et = curr_et;
-	next_lt = curr_lt - 1;
+      if (curr_lt <= 1)
+      { // update next_tt | it cannot be less than 1, but just in case
+      	// sample entity type
+      	Expression t_prob = softmax(WR * h_t);
+      	vector<float> vt_prob = as_vector(cg.incremental_forward(t_prob));
+      	next_tt = get_index(vt_prob, true);
+      	if (next_tt > 0)
+        { // sample an entity
+      	  vector<float> feat_dist = get_dist_feat(entitydist, doc.sents.size());
+      	  Expression entmat = concatenate_cols(entitylist);
+      	  Expression e_prob = softmax(((transpose(entmat) * WE) * h_t) +
+      				      exp(input(cg, {(unsigned)feat_dist.size()}, feat_dist) * lambda_dist));
+      	  vector<float> ve_prob = as_vector(cg.incremental_forward(e_prob));
+      	  // this line can be modified to avoid generating new entities
+      	  unsigned next_et_pos = get_index(ve_prob, false);
+      	  // now check whether this is a new entity
+      	  if (next_et_pos == 0){ // if it is new
+      	    cerr << "create a new entity ... " << endl;
+      	    throw runtime_error("creating new entity is foridden in sampling");
+      	  }
+      	  itn = map_pos_eidx.find(next_et_pos);
+      	  next_et = itn->second;
+      	  // sample the length for new entity
+      	  Expression l_prob = softmax(WL * concatenate({h_t, entitylist[next_et_pos]}) + L_bias);
+      	  vector<float> vl_prob = as_vector(cg.incremental_forward(l_prob));
+      	  next_lt = get_index(vl_prob, true) + 1;
+        }else 
+        { // a content word
+      	  next_et = 0;
+      	  next_lt = 1;
+	       }
+      }else 
+      { // previous entity info
+	    next_tt = curr_tt;
+	    next_et = curr_et;
+	    next_lt = curr_lt - 1;
       }
       
       // construct local context vector
-      if (has_local_cont){
-	Expression alpha = softmax((transpose(prev_cont_mat) * Tl) * h_t);
-	cont = prev_cont_mat * alpha;
+      if (has_local_cont)
+      {
+	    Expression alpha = softmax((transpose(prev_cont_mat) * Tl) * h_t);
+	    cont = prev_cont_mat * alpha;
       }
       
       // now based on next_tt, decide what to do
       Expression w_logit, entity_cont;
-      if (next_tt > 0){ // within an entity mention
-	// get the pos of entity in the entity list
-	itn = map_eidx_pos.find(next_et); 
+      if (next_tt > 0)
+      { // within an entity mention
+	    // get the pos of entity in the entity list
+	    itn = map_eidx_pos.find(next_et); 
       } else { // just a content word
-	itn = map_eidx_pos.find(closest_eidx);
+	    itn = map_eidx_pos.find(closest_eidx);
       }
       entity_cont = entitylist[itn->second];
       w_logit = get_context(cg, h_t, cont, entity_cont);

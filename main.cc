@@ -64,7 +64,7 @@ int main(int argc, char** argv) {
     ("inputdim", po::value<unsigned>()->default_value((unsigned)48), "input dimension")
     ("hiddendim", po::value<unsigned>()->default_value((unsigned)48), "hidden dimension")
     ("entitydim", po::value<unsigned>()->default_value((unsigned)48), "entity embedding dimension")
-    ("compmethod", po::value<unsigned>()->default_value((unsigned)0), "context composition method") // what is Context Composition Method? --> maxpooling?
+    ("compmethod", po::value<unsigned>()->default_value((unsigned)0), "context composition method") // what is Context Composition Method? --> maxpooling? (correct! entitynlm.h:93)
     ("lambda0", po::value<float>()->default_value((float)1.0), "lambda0")
     ("lambda1", po::value<float>()->default_value((float)0.0), "lambda1")
     ("lambda2", po::value<float>()->default_value((float)0.0), "lambda2")
@@ -327,7 +327,7 @@ int main(int argc, char** argv) {
   //seonil model_type: gen=generating, discriminating
 	if (model_type == "gen"){
 	  eloss = smm.BuildGraph(doc, cg, d, evalobj, entityweight, 0); //seonil after entity weight, 0 is nsample @ entitynlm.cc:111
-                                                                  //seonil what is eval obj?
+                                                                  //seonil what is eval obj? obj function /
 	} else if (model_type == "dis") {
 	  eloss = smm.BuildDisGraph(doc, cg); 
 	} else {
