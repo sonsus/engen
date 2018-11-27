@@ -1,3 +1,5 @@
 *.o
 easy*
 dynet
+/.ipynb_checkpoints
+.ipynb_checkpoints/
