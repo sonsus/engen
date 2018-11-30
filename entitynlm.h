@@ -38,20 +38,20 @@ using namespace dynet;
 
 
 class EntityNLM {
-  
+
 private:
   LSTMBuilder builder;
   SoftmaxBuilder* smptr;
   // parameters for input
   LookupParameter p_X; // word embeddings
-  
+
   // parameters for entity type
   Parameter p_W_R; // entity type prediction ({2, hidden_dim})
-  
+
   // parameters for entity cluster
-  Parameter p_W_E; // entity cluster prediction ({entity_dim, hidden_dim})
+  Parameter p_W_E; // entity cluster prediction ({entity_dim, hidden_dim}) // learnable mat for what entity to use?
   Parameter p_lambda_dist;
-  
+
   // parameters for entity length
   Parameter p_W_L; // length distribution parameter
   Parameter p_L_bias;
@@ -68,7 +68,7 @@ private:
   Parameter p_Wx;
   Parameter p_Te;
   Parameter p_Tc;
-  Parameter p_Tl; // attention param for local context
+  Parameter p_Tl; // attention param for local context (att pulling coeffs for the encoder hiddens)
 
   // parameters for entity embedding update
   Parameter p_W_delta; // updating weight matrix
@@ -120,7 +120,7 @@ public:
 	    float lambda3 = 1.0,
 	    string cluster_file="",
 	    string fembed="");
-  
+
   // init a CG
   int InitGraph(ComputationGraph& cg, float drop_rate);
 
@@ -148,13 +148,13 @@ private:
   int get_index(vector<float>& vec, bool take_zero=true);
 
   vector<float> get_dist_feat(vector<float> entitydist, int n);
-  
+
   int create_entity(ComputationGraph&, Expression&,
 		    vector<Expression>&, vector<float>&,
 		    map<unsigned, unsigned>&,
 		    map<unsigned, unsigned>&,
 		    int, unsigned);
-  
+
   int update_entity(ComputationGraph&, vector<Expression>&,
 		    vector<float>&, map<unsigned, unsigned>&,
 		    Expression&, Expression&, Expression&,

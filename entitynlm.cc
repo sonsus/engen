@@ -1,5 +1,5 @@
 #include "entitynlm.h"
-//colon (:) after a constructor is initializing sth(that is usually the member variable) before the constructor executes 
+//colon (:) after a constructor is initializing sth(that is usually the member variable) before the constructor executes
 EntityNLM::EntityNLM(ParameterCollection& model,
 		     unsigned vocab_size,
 		     unsigned type_size,
@@ -52,7 +52,7 @@ EntityNLM::EntityNLM(ParameterCollection& model,
   sampledtext = "";
   with_sample = false;
   has_local_cont = false;
-  comp_method = composition_method; 
+  comp_method = composition_method;
 }
 
 int EntityNLM::InitGraph(ComputationGraph& cg, float drop_rate){
@@ -102,22 +102,22 @@ int EntityNLM::InitGraph(ComputationGraph& cg, float drop_rate){
   map_eidx_pos.clear();
   map_pos_eidx.clear();
   //
-  has_local_cont = false; 
+  has_local_cont = false;
   prev_hs.clear(); // hidden state from previous sentence (entitynlm.h :92)
-  // 
+  //
   return 0;
 }
 
 Expression EntityNLM::BuildGraph(const Doc& doc,
 				 ComputationGraph& cg,
 				 Dict& d,
-				 int err_type, //eval obj: that is kind of loss we are using 
+				 int err_type, //eval obj: that is kind of loss we are using
 				 float err_weight, //entity weight: not sure what this is. maybe weight for an entity to be chosen? not sure...
 				 int nsample){ //not sure.
   /********************************************
    * Build a CG per doc*****
    ********************************************/
-  
+
   // Q: how to check whether a CG has been initialized?
 
   // for each new doc, reset global variables
@@ -127,9 +127,9 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
   // index variable
   map<unsigned, unsigned>::iterator itc, itn;
   // build the coref graph and LM for a given doc
-  vector<Expression> t_errs, e_errs, l_errs, x_errs; 
-  //seonil t:sentence idx(?), e:entity idx, l:mention length, x: previous word uttered by the decoder
-  //t_errs: according to sentence idx t, store loss? lets see further
+  vector<Expression> t_errs, e_errs, l_errs, x_errs;
+  //seonil t:type error, e:entity idx classification error, l:mention length error, x: previous word uttered by the decoder error
+	//t_errs: according to sentence idx t, store loss
   const unsigned nsent = doc.sents.size(); // doc length
   // get the dummy context vector (seonil: init the context vector?)
   Expression prev_cont_mat;
@@ -144,7 +144,7 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       // cerr << "prev_hs.size() = " << prev_hs.size() << endl;
       prev_cont_mat = concatenate_cols(prev_hs);
       prev_hs.clear(); // clean up
-    } 
+    }
     auto& sent = doc.sents[n]; // get the current sentence
     unsigned nword = sent.size() - 1; // sent length
     // cerr << "nword = " << nword << endl;
@@ -165,16 +165,16 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
 	     closest_eidx = curr_et;
       }
       // add current token onto CG
-      x_t = lookup(cg, p_X, curr_xt); // this function finds LookUpParams 
+      x_t = lookup(cg, p_X, curr_xt); // this function finds LookUpParams
       // if (drop_rate > 0) x_t = dropout(x_t, drop_rate);
-      
+
       // get hidden state h_t
       h_t = builder.add_input(x_t);
       // normalize hidden state
       // h_t = normalize_exp(cg, h_t);
-      // 
+      //
       prev_hs.push_back(h_t); // keep it for local context
-      
+
       // ---------------------------------------------
       // update the entity embedding at the end of the mention
       if ((curr_tt > 0) and (curr_et > 0)) //curr_et>0: entity mentioned
@@ -193,11 +193,11 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       		      map_eidx_pos, h_t, Wdelta, WT,
       		      cont, curr_et, n);
             }
-      
+
       if (curr_lt == 1)
       {
       	// ---------------------------------------------
-      	// next entity type prediction
+      	// next entity type prediction ( if mentionlength lt is 1 then we need a next R var for choosing to go with dictionary words or entities)
       	Expression t_logit = (WR * h_t);
       	t_errs.push_back(pickneglogsoftmax(t_logit, next_tt));
       	// ---------------------------------------------
@@ -220,8 +220,8 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
           {
       	    // if this is not a new entity
       	    e_err = pickneglogsoftmax(e_logit, itn->second);
-      	  } 
-          else 
+      	  }
+          else
           {
       	    // if this is a new entity
       	    e_err = pickneglogsoftmax(e_logit, (unsigned)0);
@@ -229,7 +229,7 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       	  // float v_e_err = as_scalar(cg.incremental_forward(e_err));
       	  e_errs.push_back(e_err);
       	}
-	
+
   	// ---------------------------------------------
   	// entity length prediction
     	if (next_et > 0)
@@ -244,11 +244,12 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
     	  l_errs.push_back(pickneglogsoftmax(l_logit, next_lt-1)); // NLL loss
     	}
     }
-      
+
       // -----------------------------------------------
       // word prediction
 
-      // construct local context
+      // construct local context (attention pulling for the encoder lstm hiddens)
+			//no good for GLAC net
     if (has_local_cont)
     {
     	Expression alpha = softmax((transpose(prev_cont_mat) * Tl) * h_t);
@@ -266,16 +267,16 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       {
   	  // entity_cont = Te * entitylist[itn->second];
 	     entity_cont = entitylist[itn->second];
-      } 
-      else 
+      }
+      else
       {
   	   // entity_cont = Te * entitylist[0];
   	   entity_cont = entitylist[0];
 	    }
-    } 
-    else 
+    }
+    else
     {
-    	if (closest_eidx > 0){ 
+    	if (closest_eidx > 0){
     	  itn = map_eidx_pos.find(closest_eidx);
     	  // entity_cont = Te * entitylist[itn->second];
     	  entity_cont = entitylist[itn->second];
@@ -299,7 +300,7 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       // float e_s = as_scalar(cg.incremental_forward(squared_norm(entity_cont)));
       // cerr << "h_s = " << h_s << " c_s = " << c_s
       // 	   << " e_s = " << e_s << endl;
-      w_logit = get_context(cg, h_t, cont, entity_cont);
+      w_logit = get_context(cg, h_t, cont, entity_cont); // maxpooling (other pooling methods are available)
       x_err = smptr->neg_log_softmax(w_logit, next_xt);
       x_errs.push_back(x_err);
     } // end of sentence
@@ -366,7 +367,7 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
     	// need to reload the original state back
     	// after one pass generation
       }
-      // 
+      //curr_lt <=1 starts (no need to read this block. it is for exception processing)
       if (curr_lt <= 1)
       { // update next_tt | it cannot be less than 1, but just in case
       	// sample entity type
@@ -393,32 +394,32 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       	  Expression l_prob = softmax(WL * concatenate({h_t, entitylist[next_et_pos]}) + L_bias);
       	  vector<float> vl_prob = as_vector(cg.incremental_forward(l_prob));
       	  next_lt = get_index(vl_prob, true) + 1;
-        }else 
+        }else
         { // a content word
       	  next_et = 0;
       	  next_lt = 1;
 	       }
       }//curr_lt <=1 ends (no need to read this block. it is for exception processing)
-        else 
+        else
       { // previous entity info
 	    next_tt = curr_tt;
 	    next_et = curr_et;
 	    next_lt = curr_lt - 1;
       }
-      
+
       // construct local context vector
       if (has_local_cont)
       {
 	    Expression alpha = softmax((transpose(prev_cont_mat) * Tl) * h_t);
 	    cont = prev_cont_mat * alpha;
       }
-      
+
       // now based on next_tt, decide what to do
       Expression w_logit, entity_cont;
       if (next_tt > 0)
       { // within an entity mention
 	    // get the pos of entity in the entity list
-	    itn = map_eidx_pos.find(next_et); 
+	    itn = map_eidx_pos.find(next_et);
       } else { // just a content word
 	    itn = map_eidx_pos.find(closest_eidx);
       }
@@ -435,13 +436,13 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       }
       oss << d.convert(next_xt) << "|" << next_tt
 	  << "|" << next_et << "|" << next_lt << " ";
-      
+
       // extra constraint on sampling
       // while ((next_xt == xEOS) and (next_tt > 0)){
       //   // please don't stop in the middle of a mention
       //   next_xt = smptr->sample(w_logit);
       // }
-      
+
       // update curr_*
       curr_tt = next_tt;
       curr_et = next_et;
@@ -461,7 +462,7 @@ Expression EntityNLM::BuildGraph(const Doc& doc,
       builder.rewind_one_step();
     }
   } // end of sampling
-  
+
   if ((bool)nsample){
     sampledtext = oss.str();
   }
@@ -511,14 +512,14 @@ Expression EntityNLM::BuildREGGraph(const Doc& doc,
   vector<Sent> candidates;
   ostringstream oss;
   oss << "\n";
-  
+
   for (unsigned n = 0; n < nsent; n++){
     builder.start_new_sequence();
     if (prev_hs.size() > 0){
       has_local_cont = true;
       prev_cont_mat = concatenate_cols(prev_hs);
       prev_hs.clear(); // clean up
-    } 
+    }
     auto& sent = doc.sents[n]; // get the current sentence
     unsigned nword = sent.size() - 1; // sent length
 
@@ -534,11 +535,11 @@ Expression EntityNLM::BuildREGGraph(const Doc& doc,
 	closest_eidx = curr_et;
       }
       // add current token onto CG
-      x_t = lookup(cg, p_X, curr_xt);      
+      x_t = lookup(cg, p_X, curr_xt);
       // get hidden state h_t
       h_t = builder.add_input(x_t);
       prev_hs.push_back(h_t); // keep it for local context
-      
+
       // get information about next step
       Expression copy_x_t = x_t;
       Expression copy_h_t = h_t;
@@ -595,7 +596,7 @@ Expression EntityNLM::BuildREGGraph(const Doc& doc,
 	    auto& next_xt = tok.xidx;
 	    // get the actual token
 	    oss << d.convert(next_xt) << "_";
-	    // 
+	    //
 	    itn = map_eidx_pos.find(next_et);
 	    if (itn != map_eidx_pos.end()){
 	      entity_cont = entitylist[itn->second];
@@ -650,7 +651,7 @@ Expression EntityNLM::BuildREGGraph(const Doc& doc,
 		      map_eidx_pos, h_t, Wdelta, WT,
 		      cont, curr_et, n);
       }
-      
+
       if (curr_lt == 1){
 	// ---------------------------------------------
 	// next entity type prediction
@@ -677,7 +678,7 @@ Expression EntityNLM::BuildREGGraph(const Doc& doc,
 	  // float v_e_err = as_scalar(cg.incremental_forward(e_err));
 	  e_errs.push_back(e_err);
 	}
-	
+
 	// ---------------------------------------------
 	// entity length prediction
 	if (next_et > 0){
@@ -691,7 +692,7 @@ Expression EntityNLM::BuildREGGraph(const Doc& doc,
 	  l_errs.push_back(pickneglogsoftmax(l_logit, next_lt-1));
 	}
       }
-      
+
       // -----------------------------------------------
       // word prediction
 
@@ -745,7 +746,7 @@ Expression EntityNLM::BuildREGGraph(const Doc& doc,
   // get scores
   regscores = oss.str();
 
-  // 
+  //
   Expression i_nerr = sum(t_errs) + sum(e_errs) + sum(l_errs) + sum(x_errs);
   // finally, return the loss
   return i_nerr;
